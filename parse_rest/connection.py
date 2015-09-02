@@ -65,6 +65,15 @@ def date_handler(obj):
 
 class ParseBase(object):
     ENDPOINT_ROOT = API_ROOT
+    ACCESS_KEYS = {}
+
+    @classmethod
+    def register(cls, app_id, rest_key, **kw):
+        cls.ACCESS_KEYS = {
+            'app_id': app_id,
+            'rest_key': rest_key
+            }
+        cls.ACCESS_KEYS.update(**kw)
 
     @classmethod
     def execute(cls, uri, http_verb, extra_headers=None, batch=False, _body=None, **kw):
@@ -80,12 +89,16 @@ class ParseBase(object):
                 ret["body"] = kw
             return ret
 
-        if not ('app_id' in ACCESS_KEYS and 'rest_key' in ACCESS_KEYS):
+        if 'app_id' in cls.ACCESS_KEYS and 'rest_key' in cls.ACCESS_KEYS:
+            app_id = cls.ACCESS_KEYS.get('app_id')
+            rest_key = cls.ACCESS_KEYS.get('rest_key')
+            master_key = cls.ACCESS_KEYS.get('master_key')
+        elif 'app_id' in ACCESS_KEYS and 'rest_key' in ACCESS_KEYS:
+            app_id = ACCESS_KEYS.get('app_id')
+            rest_key = ACCESS_KEYS.get('rest_key')
+            master_key = ACCESS_KEYS.get('master_key')
+        else:
             raise core.ParseError('Missing connection credentials')
-
-        app_id = ACCESS_KEYS.get('app_id')
-        rest_key = ACCESS_KEYS.get('rest_key')
-        master_key = ACCESS_KEYS.get('master_key')
 
         url = uri if uri.startswith(API_ROOT) else cls.ENDPOINT_ROOT + uri
         if _body is None:
@@ -107,7 +120,9 @@ class ParseBase(object):
 
         request = Request(url, data, headers)
         
-        if ACCESS_KEYS.get('session_token'):
+        if cls.ACCESS_KEYS.get('session_token'):
+            request.add_header('X-Parse-Session-Token', cls.ACCESS_KEYS.get('session_token'))
+        elif ACCESS_KEYS.get('session_token'):
             request.add_header('X-Parse-Session-Token', ACCESS_KEYS.get('session_token'))
         elif master_key:
             request.add_header('X-Parse-Master-Key', master_key)
